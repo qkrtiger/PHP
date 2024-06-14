@@ -8,9 +8,10 @@ strpos와 stripos는 PHP에서 문자열 내에서 특정 문자열이 처음으
 int strpos ( string $haystack , string $needle [, int $offset = 0 ] )
 ```
 매개변수:
-$haystack: 검색 대상이 되는 문자열입니다.
-$needle: 검색할 문자열입니다.
-$offset (선택 사항): 검색을 시작할 위치입니다. 기본값은 0입니다.
+- `$haystack`: 검색 대상이 되는 문자열입니다.
+- `$needle`: 검색할 문자열입니다.
+- `$offset (선택 사항)`: 검색을 시작할 위치입니다. 기본값은 0입니다.
+
 반환 값: $needle이 $haystack 내에 존재하면 첫 번째로 일치하는 위치를 반환하고, 존재하지 않으면 false를 반환합니다.
 예제:
 ```
