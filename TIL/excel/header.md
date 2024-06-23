@@ -3,7 +3,7 @@
 
 데이터를 CSV 형식으로 변환하여 다운로드할 때 유용하다.
 
-```
+```php
 $filename = "파일이름.xls";
 
 header("Content-type: application/vnd.ms-excel");
