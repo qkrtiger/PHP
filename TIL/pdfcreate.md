@@ -14,6 +14,7 @@
 require_once('tcpdf/tcpdf.php');
 
 // TCPDF 객체 생성
+
 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
 // 문서 정보 설정
