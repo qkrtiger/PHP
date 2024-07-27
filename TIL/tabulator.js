@@ -168,8 +168,89 @@ function generateUUID() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
+
+function fileUploadEditor(cell, formatterParams, onRendered) {
+    var value = cell.getValue() || ""; // 기본값을 빈 문자열로 설정
+    var row = cell.getRow();
+    var uniqueId = row.getData().uniqueId;
+    var eid = 'edu_record_' + uniqueId;
+    var refseq = user_seq;
+
+    console.log(eid);
+
+    console.log("File upload editor value:", value);
+
+    if(value.length > 0) {
+        // 파일이 있는 경우, fileFormatter를 사용하여 파일 정보 표시
+        return fileFormatter(cell, refseq, eid);
+    } else {
+
+        // 파일이 없는 경우, '파일 선택' 버튼 표시
+        var input = document.createElement("input");
+        input.setAttribute("type", "file");
+        input.setAttribute("data-refseq", refseq);
+        input.setAttribute("data-eid", eid);
+
+        input.addEventListener("change", function(event){
+            var file = event.target.files[0];
+            if (file) {
+                var formData = new FormData();
+                formData.append("file", file);
+                formData.append("refseq", refseq);
+                formData.append("eid", eid);
+                formData.append('act', 'chuga');
+                
+                $.ajax({
+                    url: '/rams/_api/zf_file.php',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    dataType: 'json',
+                    async: true,
+                    success: function (res) {
+                        if (res[0].code == '0') {
+                            var refseq = user_seq;
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: '파일 업로드가 완료 되었습니다',
+                                showConfirmButton: false,
+                                timer: 500,
+                            }).then(() => {
+                                // console.log(res);
+
+                                // 새로운 파일 정보를 표시하는 코드
+                                addFileToCell(cell, res[0]);
+  
+                            });
+                        } else if (res[0].code == '10') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: '해당 파일은 저장할 수 없는 확장자입니다.',
+                                showConfirmButton: false,
+                                timer: 1000,
+                            });
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("File upload error:", error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: '파일 업로드 중 오류가 발생했습니다.',
+                            text: error,
+                            showConfirmButton: true
+                        });
+                    },
+                });
+            }
+        });
+        return input;
+    }
+}
+
 // 파일 업로드 에디터
-function fileUploadEditor(cell, onRendered, success, cancel, editorParams){
+function fileUploadEditor_ex(cell, onRendered, success, cancel, editorParams){
     var input = document.createElement("input");
     input.setAttribute("type", "file");
     // input.setAttribute("data-eid", "edu_history");
@@ -248,6 +329,50 @@ function fileUploadEditor(cell, onRendered, success, cancel, editorParams){
 }
 
 
+function addFileToCell(cell, fileInfo) {
+    var container = document.createElement("div");
+
+    var link = document.createElement("a");
+    link.setAttribute("href", "javascript:;");
+    link.className = "filedown";
+    link.onclick = function() {
+        handleFileClick(fileInfo.file_seq, fileInfo.file_org, fileInfo.file_path, fileInfo.file_real, fileInfo.file_size);
+    };
+    link.textContent = fileInfo.file_org;
+    link.style.display = "block";
+    link.style.marginRight = "10px";
+    link.addEventListener("click", function(e){
+        e.preventDefault();
+        e.stopPropagation();
+    });
+
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-file-del p-0 px-2";
+    button.innerHTML = "X";
+    button.onclick = function() {
+        delFile(cell, fileInfo.file_seq, fileInfo.file_org, fileInfo.file_eid);
+    };
+
+    var fileContainer = document.createElement("div");
+    fileContainer.appendChild(link);
+    fileContainer.appendChild(button);
+    fileContainer.style.display = "flex";
+    fileContainer.style.alignItems = "center";
+    fileContainer.style.marginBottom = "5px";
+
+    container.appendChild(fileContainer);
+
+    // 셀에 새로운 파일 정보 추가
+    var cellElement = cell.getElement();
+    cellElement.appendChild(container);
+
+    // 셀의 값 업데이트 (기존 파일 목록에 새 파일 추가)
+    var currentValue = cell.getValue() || [];
+    currentValue.push(fileInfo);
+    cell.setValue(currentValue);
+}
+
 // 파일 표시 포매터
 // function fileFormatter(cell, formatterParams, onRendered){
 //     var value = cell.getValue();
@@ -282,19 +407,22 @@ function fileUploadEditor(cell, onRendered, success, cancel, editorParams){
 // }
 
 function fileFormatter(cell, formatterParams, onRendered){
+
+    console.log("Formatter cell:", cell);
+
     var value = cell.getValue();
 
     console.log("Formatter value:", value);
 
     if (value && Array.isArray(value) && value.length > 0) {
-        var container = document.createElement("div");
+                var container = document.createElement("div");
 
         value.forEach(file => {
             var link = document.createElement("a");
             link.setAttribute("href", "javascript:;");
             link.className = "filedown";
             link.onclick = function() {
-                handleFileClick(file.seq, file.file_org, file.file_path, file.file_real, file.file_size);
+                handleFileClick(file.file_seq, file.file_org, file.file_path, file.file_real, file.file_size);
             };
             link.textContent = file.file_org;
             link.style.display = "block";
@@ -309,7 +437,7 @@ function fileFormatter(cell, formatterParams, onRendered){
             button.className = "btn btn-file-del p-0 px-2";
             button.innerHTML = "X";
             button.onclick = function() {
-                delFile(file.seq, file.file_org);
+                delFile(cell, file.file_seq, file.file_org, file.file_eid);
             };
 
             var fileContainer = document.createElement("div");
@@ -320,6 +448,90 @@ function fileFormatter(cell, formatterParams, onRendered){
             fileContainer.style.marginBottom = "5px";
 
             container.appendChild(fileContainer);
+        });
+
+        return container;
+    }
+
+    return "";
+}
+
+function delFile(cell, seq, file_org, eid, listyn) {
+    // sw2 로 삭제 여부 확인
+    Swal.fire({
+        title: file_org + ' 파일삭제',
+        text: '삭제된 파일은 복구할 수 없습니다.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#999',
+        confirmButtonText: '삭제',
+        cancelButtonText: '취소',
+    }).then(result => {
+        if (result.isConfirmed) {
+            // ajax 로 zf_file.php 에러 목록 json 가져오기.
+            var formData = new FormData();
+            formData.append('seq', seq);
+            formData.append('act', 'sakje');
+            $.ajax({
+                url: '/rams/_api/zf_file.php',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function (res) {
+                    // json data 처리 json parse
+                    // var jdata = JSON.parse(res);
+                    // 성공적으로 전송된 후 처리
+                    if (res.code == '0') {
+                        var scrollPosition = $('.modal').scrollTop(); // 모달의 현재 스크롤
+                        refseq = res.refseq;
+                        Swal.fire({
+                            icon: 'success',
+                            title: '파일이 삭제되었습니다.',
+                            showConfirmButton: false,
+                            timer: 500,
+                        }).then(() => {
+                            location.reload();
+
+                        });
+                    }
+                },
+                error: function (xhr, status, error) {
+                    // 오류 처리
+                },
+            });
+        }
+    });
+}
+
+
+
+function fileFormatter2(cell, formatterParams, onRendered){
+    var value = cell.getValue();
+
+    console.log("Formatter value:", value);
+
+    if (value && Array.isArray(value) && value.length > 0) {
+        var container = document.createElement("div");
+
+        value.forEach(file => {
+            var link = document.createElement("a");
+            link.setAttribute("href", "javascript:;");
+            link.className = "filedown";
+            link.onclick = function() {
+                handleFileClick(file.file_seq, file.file_org, file.file_path, file.file_real, file.file_size);
+            };
+            link.textContent = file.file_org;
+            link.style.display = "block";
+            link.addEventListener("click", function(e){
+                e.preventDefault();
+                e.stopPropagation();
+            });
+            
+            
+            container.appendChild(link);
         });
 
         return container;
@@ -504,7 +716,7 @@ var table2;
 fetchFiles(user_seq, 'list', function(fileData) {
     var integratedData = integrateFileData(tableData2, fileData);
 
-    console.log(integratedData);
+    // console.log(integratedData);
 
     // 각 행에 unique ID 추가
     integratedData = integratedData.map(row => {
@@ -519,17 +731,17 @@ fetchFiles(user_seq, 'list', function(fileData) {
     });
 
     // console.table(integratedData);
-    console.log(integratedData);
+    // console.log(integratedData);
 
     table2 = new Tabulator("#example-table2", {
         height:"300px",
         data:integratedData ,
         selectable:1, // Allow row selection
-        layout: "fitData",
+        renderHorizontal:"virtual",
         layout:"fitColumns", // Fit columns to width of table
         columns:[ // Define table columns
             {title:"자격증 종류", field:"license", width:150, editor:"input", maxWidth:150 }, // ID column, not editable
-            {title: "취득일자", field: "get_date", editor: dateEditor, formatter: function(cell, formatterParams){
+            {title: "취득일자", field: "get_date",  width:150, editor: dateEditor, formatter: function(cell, formatterParams){
                 var value = cell.getValue();
                 cell.getElement().style.fontWeight = "bold";
                 if(value){
@@ -538,7 +750,7 @@ fetchFiles(user_seq, 'list', function(fileData) {
                 }
                 return "";
             }, maxWidth: 150},
-            {title: "유효기간", field: "ex_date", editor: dateEditor, formatter: function(cell, formatterParams){
+            {title: "유효기간", field: "ex_date",  width:150, editor: dateEditor, formatter: function(cell, formatterParams){
                 var value = cell.getValue();
                 cell.getElement().style.fontWeight = "bold";
                 if(value){
@@ -548,10 +760,21 @@ fetchFiles(user_seq, 'list', function(fileData) {
                 return "";
             }, maxWidth: 150},
             
-            {title:"발행처", field:"issuer", editor:"input",  maxWidth:150}, // Editable columns
-            {title:"첨부", field:"file", editor:fileUploadEditor, formatter:fileFormatter, maxWidth:200, headerSort:false},
+            {title:"발행처", field:"issuer",  width:200, editor:"input",  maxWidth:150}, // Editable columns
+            {title:"첨부", field:"file",formatter:fileUploadEditor, width:400, maxWidth:600, headerSort:false},
         ],
+
     });
+
+    // table2.on("tableBuilt", function() {
+    //     // console.log('테이블이 구축되었습니다');
+    //     table2.getRows().forEach(row => {
+    //         var cell = row.getCell("file");
+    //         if (cell) {
+    //             cell.edit();
+    //         }
+    //     });
+    // });
 
 
     table2.on("cellEdited", function(cell) {
@@ -579,33 +802,33 @@ fetchFiles(user_seq, 'list', function(fileData) {
     });
 });
 
-var table3;
-fetchFiles(user_seq, 'list', function(fileData) {
-
-    var integratedData = integrateFileData(tableData3, fileData);
-
-    table3 = new Tabulator("#example-table3", {
-        height: "300px",
-        data: integratedData,
-        layout: "fitColumns", // Fit columns to width of table
-        columns: [ // Define table columns
-            {title: "교육일자", field: "edu_date"},
-            {title: "교육구분", field: "edu_div"},
-            {title: "교육방법", field: "edu_method"},
-            {title: "법정교육명", field: "edu_course"},
-            {title: "교육명", field: "edu_course"},
-            {title: "교육시간", field: "edu_time"},
-            {title: "이수시간", field: "edu_complete"},
-            {title: "평가", field: "edu_rating"},
-            {title: "첨부", field: "file_list" , headerSort:false}
-        ]
-    });
 
 
+table3 = new Tabulator("#example-table3", {
+    height: "300px",
+    data: tableData3,
+    renderHorizontal:"virtual",
+    layout: "fitColumns", // Fit columns to width of table
+    columns: [ // Define table columns
+        {title: "교육일자", width:100, field: "edu_date"},
+        {title: "교육구분", width:100,field: "edu_div"},
+        {title: "교육방법", width:100,field: "edu_method"},
+        {title: "법정교육명", width:200, field: "edu_course_name"},
+        {title: "교육명", width:200, field: "edu_name"},
+        {title: "교육시간", width:100, field: "edu_time"},
+        {title: "이수시간(분)", width:120, field: "edu_complete"},
+        {title: "평가", width:80, field: "edu_rating"},
+        {title: "첨부", width:400 , field: "file_list" , formatter:fileFormatter2, headerSort:false}
+    ]
 });
+
 // Function to add a row to Table 1
 function addRowToTable1() {
-    table1.addRow({});
+    if(user_seq == ''){
+        SwalFunctionE('대상자를 먼저 선택해주세요.');
+    }else{
+        table1.addRow({});
+    }
 }
 
 // Function to delete a selected row from Table 1
@@ -614,7 +837,7 @@ function deleteRowFromTable1() {
     if(selectedRows.length) {
         selectedRows[0].delete(); // Delete the first selected row
     } else {
-        alert("삭제 할 행을 선택해 주세요");
+        SwalFunctionE('삭제 할 행을 선택해 주세요.');
     }
 }
 
@@ -622,7 +845,11 @@ function deleteRowFromTable1() {
 // Function to add a row to Table 2
 function addRowToTable2() {
     // table2.addRow({});
-    table2.addRow({uniqueId: generateUUID()});
+    if(user_seq == ''){
+        SwalFunctionE('대상자를 먼저 선택해주세요.');
+    }else{
+        table2.addRow({uniqueId: generateUUID()});
+    }
     
 }
 
@@ -632,7 +859,8 @@ function deleteRowFromTable2() {
     if(selectedRows.length) {
         selectedRows[0].delete(); // Delete the first selected row
     } else {
-        alert("삭제 할 행을 선택해 주세요");
+
+        SwalFunctionE('삭제 할 행을 선택해 주세요.');
     }
 }
 
