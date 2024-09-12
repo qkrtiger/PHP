@@ -1,8 +1,3 @@
-네, GitHub에 올릴 수 있는 PHP의 `str_replace` 함수 사용 예제를 작성해 드리겠습니다.
-
-
-
-```php
 <?php
 
 // str_replace 함수 예제
